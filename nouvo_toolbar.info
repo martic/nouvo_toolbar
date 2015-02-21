@@ -1,0 +1,4 @@
+name = Nouvo Toolbar
+description = An admin toolbar built for Nouvo theme.
+core = 7.x
+configure = admin/config/development/nouvo-toolbar

@@ -1,0 +1,324 @@
+<?php
+
+/**
+* Implements hook_menu().
+*/
+function nouvo_toolbar_menu() {
+  $items['nouvo_toolbar/test'] = array(
+    'title' => 'Testing',
+    'type' => MENU_CALLBACK,
+    'page callback' => 'nouvo_toolbar_test_page',
+    'access arguments' => array('administer content'),
+  );
+  return $items;
+}
+
+function nouvo_toolbar_test_page() {
+  return '';
+}
+
+/**
+ * Implements hook_permission().
+ */
+function nouvo_toolbar_permission() {
+  return array(
+    'access nouvo toolbar' => array(
+      'title' => t('Use the nouvo administration toolbar'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_theme().
+ */
+function nouvo_toolbar_theme($existing, $type, $theme, $path) {
+  $items['nouvo_toolbar'] = array(
+    'render element' => 'nouvo_toolbar',
+    'template' => 'nouvo_toolbar',
+    'path' => drupal_get_path('module', 'nouvo_toolbar'),
+  );
+  $items['nouvo_toolbar_menu'] = array(
+    'render element' => 'elements',
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_page_build().
+ *
+ * Add admin toolbar to the page_top region automatically.
+ */
+function nouvo_toolbar_page_build(&$page) {
+  $page['page_top']['nouvo_toolbar'] = array(
+    '#pre_render' => array('nouvo_toolbar_pre_render'),
+    '#access' => user_access('access nouvo toolbar'),
+  );
+}
+
+/**
+ * Prerender function for the toolbar.
+ *
+ * Since building the toolbar takes some time, it is done just prior to
+ * rendering to ensure that it is built only if it will be displayed.
+ */
+function nouvo_toolbar_pre_render($nouvo_toolbar) {
+  $nouvo_toolbar = array_merge($nouvo_toolbar, nouvo_toolbar_view());
+  return $nouvo_toolbar;
+}
+
+/**
+ * Implements hook_preprocess_html().
+ *
+ * Add some page classes, so global page theming can adjust to the toolbar.
+ */
+function nouvo_toolbar_preprocess_html(&$vars) {
+  if (isset($vars['page']['page_top']['nouvo_toolbar']) && user_access('access nouvo toolbar')) {
+    $vars['classes_array'][] = 'nouvo-toolbar-active';
+  }
+}
+
+/**
+ * Implements hook_preprocess_nouvo_toolbar().
+ *
+ * Adding the 'displace-top' class to the toolbar pushes the overlay
+ * down, so it appears below the toolbar.
+ */
+function nouvo_toolbar_preprocess_nouvo_toolbar(&$variables) {
+  $variables['classes_array'][] = 'displace-top';
+}
+
+/**
+ * Implements hook_system_info_alter().
+ *
+ * Indicate that the 'page_top' region (in which the toolbar will be displayed)
+ * is an overlay supplemental region that should be refreshed whenever its
+ * content is updated.
+ *
+ * This information is provided for any module that might need to use it, not
+ * just the core Overlay module.
+ */
+function nouvo_toolbar_system_info_alter(&$info, $file, $type) {
+  if ($type == 'theme') {
+    $info['overlay_supplemental_regions'][] = 'page_top';
+  }
+}
+
+/**
+ * Builds the admin menu as a structured array ready for drupal_render().
+ */
+function nouvo_toolbar_view() {
+  $module_path = drupal_get_path('module', 'nouvo_toolbar');
+  $build = array(
+    '#theme' => 'nouvo_toolbar',
+    '#attached'=> array(
+      'js' => array(
+        $module_path . '/nouvo_toolbar.js',
+      ),
+      'css' => array(
+        $module_path . '/nouvo_toolbar.css',
+      ),
+    ),
+  );
+
+  // Retrieve the admin menu from the database.
+  $tree = menu_tree_all_data('management');
+  if (!empty($tree)) {
+    $tree = array_shift($tree);
+    if (isset($tree['below']) && !empty($tree['below'])) {
+      $tree = $tree['below'];
+    }
+  }
+  //dsm($tree);
+  $links = nouvo_toolbar_menu_navigation_links($tree);
+  //dsm($links);
+  $build['nouvo_toolbar_menu'] = array(
+    '#theme' => 'nouvo_toolbar_menu',
+    '#links' => $links,
+    '#attributes' => array('id' => 'nouvo-toolbar-menu'),
+    '#heading' => array('text' => t('Nouvo Toolbar'), 'level' => 'h2', 'class' => 'element-invisible'),
+  );
+
+  return $build;
+}
+
+function theme_nouvo_toolbar_menu($variables) {
+  //dsm($variables);
+  $links = $variables['elements']['#links'];
+  $attributes = $variables['elements']['#attributes'];
+  $heading = $variables['elements']['#heading'];
+  global $language_url;
+
+  $output = '';
+
+  if (count($links)) {
+    if (!empty($heading)) {
+      $output .= '<'. $heading['level'];
+      if (!empty($heading['class'])) {
+        $output .= drupal_attributes(array('class' => $heading['class']));
+      }
+      $output .= '>' . check_plain($heading['text']) . '</' . $heading['level'] . '>';
+    }
+
+    $output .= '<ul' . drupal_attributes($attributes) . '>';
+
+    foreach($links as $key => $link) {
+      $class = array($key);
+
+      if (isset($link['href']) && ($link['href'] == $_GET['q'] || ($link['href'] == '<front>' && drupal_is_front_page())) && (empty($link['language']) || $link['language']->language == $language_url->language)) {
+        $class[] = 'active';
+      }
+      $output .= '<li' . drupal_attributes(array('class' => $class)) . '>';
+
+      if (isset($link['href'])) {
+        // Pass in $link as $options, they share the same keys.
+        $output .= l($link['title'], $link['href'], $link);
+      } elseif (!empty($link['title'])) {
+        // Some links are actually not links, but we wrap these in <span> for adding title and class attributes.
+        if (empty($link['html'])) {
+          $link['title'] = check_plain($link['title']);
+        }
+        $span_attributes = '';
+        if (isset($link['attributes'])) {
+          $span_attributes = drupal_attributes($link['attributes']);
+        }
+        $output .= '<span' . $span_attributes . '>' . $link['title'] . '</span>';
+      }
+      if (!empty($link['below']['#links'])) {
+        $output .= _nouvo_toolbar_output_submenu($link['below']['#links'], $link['depth'] + 1);
+      }
+
+      $output .= "</li>\n";
+    }
+
+    $output .= '</ul>';
+  }
+  return $output;
+}
+
+function _nouvo_toolbar_output_submenu($links, $depth) {
+  $output = '';
+  $class = _nouvo_toolbar_get_class_from_depth($depth);
+  $output .= '<ul' . drupal_attributes(array('class' => $class)) . '>';
+
+  foreach($links as $key => $link) {
+    $class = array($key);
+
+    if (isset($link['href']) && ($link['href'] == $_GET['q'] || ($link['href'] == '<front>' && drupal_is_front_page())) && (empty($link['language']) || $link['language']->language == $language_url->language)) {
+      $class[] = 'active';
+    }
+    $output .= '<li' . drupal_attributes(array('class' => $class)) . '>';
+
+    if (isset($link['href'])) {
+      // Pass in $link as $options, they share the same keys.
+      $output .= l($link['title'], $link['href'], $link);
+    } elseif (!empty($link['title'])) {
+      // Some links are actually not links, but we wrap these in <span> for adding title and class attributes.
+      if (empty($link['html'])) {
+        $link['title'] = check_plain($link['title']);
+      }
+      $span_attributes = '';
+      if (isset($link['attributes'])) {
+        $span_attributes = drupal_attributes($link['attributes']);
+      }
+      $output .= '<span' . $span_attributes . '>' . $link['title'] . '</span>';
+    }
+
+    if (!empty($link['below']['#links'])) {
+      $output .= _nouvo_toolbar_output_submenu($link['below']['#links'], $link['depth'] + 1);
+    }
+
+
+    $output .= "</li>\n";
+  }
+
+  $output .= '</ul>';
+
+  return $output;
+}
+
+/**
+ * Generates a links array from a menu tree array.
+ *
+ * Based on menu_navigation_links(). Adds path based IDs and icon placeholders
+ * to the links.
+ */
+function nouvo_toolbar_menu_navigation_links($tree) {
+  $links = array();
+  foreach ($tree as $item) {
+    if (!$item['link']['hidden'] && $item['link']['access']) {
+      // Make sure we have a path specific ID in place, so we can attach icons
+      // and behaviors to the items.
+      $id = str_replace(array('/', '<', '>'), array('-', '', ''), $item['link']['href']);
+
+      $link = $item['link']['localized_options'];
+      $link['href'] = $item['link']['href'];
+      // Add icon placeholder.
+      $link['title'] = check_plain($item['link']['title']);
+      // Add admin link ID.
+      $link['attributes'] = array('id' => 'toolbar-link-' . $id);
+      if (!empty($item['link']['description'])) {
+        $link['title'] .= ' <span class="element-invisible">(' . check_plain($item['link']['description']) . ')</span>';
+        $link['attributes']['title'] = $item['link']['description'];
+      }
+      $link['below']['#links'] = nouvo_toolbar_menu_navigation_links($item['below']);
+      $link['html'] = TRUE;
+
+      $class = 'nouvo-' . $id;
+      $link['depth'] = $item['link']['depth'];
+      //$below_attributes = array();
+      $depth_class = _nouvo_toolbar_get_class_from_depth($item['link']['depth']);
+      if ($item['link']['depth'] == '2') {
+        $class .= ' ' . $depth_class;
+        if (!empty($link['below']['#links'])) {
+          $class .= ' nouvo-btn-parent';
+        }
+      } else {
+        //$below_attributes['class'] = $depth_class;
+        if (!empty($link['below']['#links'])) {
+          $class .= ' nouvo-parent';
+        }
+      }
+      //$link['below']['#attributes'] = $below_attributes;
+
+      if (nouvo_toolbar_in_active_trail($item['link']['href'])) {
+        $class .= ' active-trail';
+      }
+      $links[$class] = $link;
+    }
+  }
+  return $links;
+}
+
+function _nouvo_toolbar_get_class_from_depth($depth) {
+  $class = 'nouvo-sub';
+
+  if ($depth == '2') {
+    $class = 'nouvo-btn';
+  } else if ($depth == '3') {
+    $class = 'nouvo-2nd';
+  }
+
+  return $class;
+}
+
+/**
+ * Checks whether an item is in the active trail.
+ *
+ * Useful when using a menu generated by menu_tree_all_data() which does
+ * not set the 'in_active_trail' flag on items.
+ */
+function nouvo_toolbar_in_active_trail($path) {
+  $active_paths = &drupal_static(__FUNCTION__);
+
+  // Gather active paths.
+  if (!isset($active_paths)) {
+    $active_paths = array();
+    $trail = menu_get_active_trail();
+    foreach ($trail as $item) {
+      if (!empty($item['href'])) {
+        $active_paths[] = $item['href'];
+      }
+    }
+  }
+  return in_array($path, $active_paths);
+}
