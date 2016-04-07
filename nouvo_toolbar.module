@@ -122,7 +122,7 @@ function nouvo_toolbar_view() {
 
   // Retrieve the admin menu from the database.
   //$tree = menu_tree_all_data('management');
-  $tree = menu_tree_all_data('portal');
+  $tree = menu_tree_all_data('menu-portal');
   if (!empty($tree)) {
     $tree = array_shift($tree);
     if (isset($tree['below']) && !empty($tree['below'])) {
