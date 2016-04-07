@@ -175,7 +175,7 @@ body.nouvo-toolbar-active {
     left: 0;
     right: 0;
 }
-.nouvo-admin-photos > a:before {
+.nouvo-photos > a:before {
     content: "\e092";
 }
 .nouvo-images-photo > a:before {
