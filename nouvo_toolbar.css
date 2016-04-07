@@ -175,6 +175,21 @@ body.nouvo-toolbar-active {
     left: 0;
     right: 0;
 }
+.nouvo-admin-photos > a:before {
+    content: "\e092";
+}
+.nouvo-images-photo > a:before {
+    content: "\e08a";
+}
+.nouvo-node-photos > a:before {
+    content: "\e08a";
+}
+.nouvo-node-photos > a:before {
+    content: "\e08a";
+}
+.nouvo-portal-photos > a:before {
+    content: "\e031";
+}
 .nouvo-admin-content > a:before {
     content: "\e08a";
 }
