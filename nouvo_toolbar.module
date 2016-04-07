@@ -129,9 +129,9 @@ function nouvo_toolbar_view() {
       $tree = $tree['below'];
     }
   }
-  //dsm($tree);
+  dsm($tree);
   $links = nouvo_toolbar_menu_navigation_links($tree);
-  //dsm($links);
+  dsm($links);
   $build['nouvo_toolbar_menu'] = array(
     '#theme' => 'nouvo_toolbar_menu',
     '#links' => $links,
@@ -143,7 +143,7 @@ function nouvo_toolbar_view() {
 }
 
 function theme_nouvo_toolbar_menu($variables) {
-  //dsm($variables);
+  dsm($variables);
   $links = $variables['elements']['#links'];
   $attributes = $variables['elements']['#attributes'];
   $heading = $variables['elements']['#heading'];
