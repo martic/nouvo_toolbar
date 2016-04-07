@@ -251,7 +251,7 @@ function nouvo_toolbar_menu_navigation_links($tree) {
     if (!$item['link']['hidden'] && $item['link']['access']) {
       // Make sure we have a path specific ID in place, so we can attach icons
       // and behaviors to the items.
-      $id = str_replace(array('/', '<', '>'), array('-', '', ''), $item['link']['href']);
+      $id = str_replace(array('/', '<', '>'), array('-', '', ''), $item['link']['link_path']);
 
       $link = $item['link']['localized_options'];
       $link['href'] = $item['link']['href'];
